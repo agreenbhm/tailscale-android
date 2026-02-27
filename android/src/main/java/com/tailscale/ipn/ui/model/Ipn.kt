@@ -223,6 +223,8 @@ class Ipn {
       var FrontendLogID: String? = null,
       var UpdatePrefs: Prefs? = null,
       var AuthKey: String? = null,
+      var SOCKS5Server: String? = null,
+      var HTTPProxy: String? = null,
   )
 }
 
