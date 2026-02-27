@@ -58,8 +58,6 @@
     <string name="bug_report">Bug report</string>
     <string name="use_ts_dns">Use Tailscale DNS</string>
     <string name="internal_debug_options">Internal debug options</string>
-    <string name="proxy_only_mode_setting">Proxy-only mode (no Android VPN)</string>
-    <string name="requires_full_vpn_mode">Requires full VPN mode</string>
     <string name="save">Save</string>
     <string name="socks_proxy_header">AdGuard SOCKS proxy</string>
     <string name="socks_proxy_endpoint_title">SOCKS endpoint</string>
@@ -325,6 +323,9 @@
     <string name="an_unknown_error_occurred_please_try_again">An unknown error occurred. Please try again.</string>
     <string name="request_timed_out_make_sure_that_is_online">Request timed out. Make sure that \'%1$s\' is online.</string>
     <string name="split_tunneling">App split tunneling</string>
+    <!-- Proxy-only mode -->
+    <string name="proxy_only_mode_setting">Proxy-only mode (no Android VPN)</string>
+    <string name="requires_full_vpn_mode">Requires full VPN mode</string>
     <string name="your_current_selection_will_be_cleared">Your current selection will be cleared.</string>
     <string name="filter_apps_allowed_to_access_tailscale">Filter what apps are allowed to access Tailscale.</string>
     <string name="selected_apps_will_access_the_internet_directly_without_using_tailscale">Apps you select will access the internet without using Tailscale.</string>
