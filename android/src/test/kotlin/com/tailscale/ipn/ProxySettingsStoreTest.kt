@@ -9,84 +9,46 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.ArgumentMatchers.anyString
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 class ProxySettingsStoreTest {
   private lateinit var prefs: SharedPreferences
+  private lateinit var editor: SharedPreferences.Editor
   private lateinit var store: ProxySettingsStore
   private val values = mutableMapOf<String, String?>()
 
   @Before
   fun setUp() {
-    prefs = InMemorySharedPreferences(values)
+    prefs = mock()
+    editor = mock()
+
+    whenever(prefs.edit()).thenReturn(editor)
+    whenever(prefs.getString(anyString(), any())).thenAnswer { invocation ->
+      val key = invocation.arguments[0] as String
+      values[key] ?: invocation.arguments[1] as String?
+    }
+
+    doAnswer { invocation ->
+          values[invocation.arguments[0] as String] = invocation.arguments[1] as String?
+          editor
+        }
+        .whenever(editor)
+        .putString(anyString(), any())
+
+    doAnswer { invocation ->
+          values.remove(invocation.arguments[0] as String)
+          editor
+        }
+        .whenever(editor)
+        .remove(anyString())
+
+    whenever(editor.apply()).then {}
 
     store = ProxySettingsStore { prefs }
-  }
-
-  private class InMemorySharedPreferences(private val values: MutableMap<String, String?>) :
-      SharedPreferences {
-    override fun getString(key: String?, defValue: String?): String? {
-      if (key == null) return defValue
-      return values[key] ?: defValue
-    }
-
-    override fun edit(): SharedPreferences.Editor = Editor(values)
-
-    private class Editor(private val values: MutableMap<String, String?>) : SharedPreferences.Editor {
-      override fun putString(key: String?, value: String?): SharedPreferences.Editor {
-        if (key != null) values[key] = value
-        return this
-      }
-
-      override fun remove(key: String?): SharedPreferences.Editor {
-        if (key != null) values.remove(key)
-        return this
-      }
-
-      override fun apply() = Unit
-
-      override fun clear(): SharedPreferences.Editor = unsupported()
-
-      override fun putStringSet(
-          key: String?,
-          values: MutableSet<String>?
-      ): SharedPreferences.Editor = unsupported()
-
-      override fun putInt(key: String?, value: Int): SharedPreferences.Editor = unsupported()
-
-      override fun putLong(key: String?, value: Long): SharedPreferences.Editor = unsupported()
-
-      override fun putFloat(key: String?, value: Float): SharedPreferences.Editor = unsupported()
-
-      override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor = unsupported()
-
-      override fun commit(): Boolean = unsupported()
-
-      private fun unsupported(): Nothing =
-          throw UnsupportedOperationException("Not needed in ProxySettingsStore tests")
-    }
-
-    override fun getAll(): MutableMap<String, *> = values
-
-    override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? =
-        defValues
-
-    override fun getInt(key: String?, defValue: Int): Int = defValue
-
-    override fun getLong(key: String?, defValue: Long): Long = defValue
-
-    override fun getFloat(key: String?, defValue: Float): Float = defValue
-
-    override fun getBoolean(key: String?, defValue: Boolean): Boolean = defValue
-
-    override fun contains(key: String?): Boolean = key != null && values.containsKey(key)
-
-    override fun registerOnSharedPreferenceChangeListener(
-        listener: SharedPreferences.OnSharedPreferenceChangeListener?
-    ) = Unit
-
-    override fun unregisterOnSharedPreferenceChangeListener(
-        listener: SharedPreferences.OnSharedPreferenceChangeListener?
-    ) = Unit
   }
 
   @Test
