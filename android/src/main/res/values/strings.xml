@@ -60,6 +60,18 @@
     <string name="internal_debug_options">Internal debug options</string>
     <string name="proxy_only_mode_setting">Proxy-only mode (no Android VPN)</string>
     <string name="requires_full_vpn_mode">Requires full VPN mode</string>
+    <string name="save">Save</string>
+    <string name="socks_proxy_header">AdGuard SOCKS proxy</string>
+    <string name="socks_proxy_endpoint_title">SOCKS endpoint</string>
+    <string name="copy_socks_proxy_endpoint_hint">Tap to copy for AdGuard upstream proxy configuration.</string>
+    <string name="socks_proxy_health_title">Listener health</string>
+    <string name="socks_proxy_health_checking">Checking…</string>
+    <string name="socks_proxy_health_healthy">Listening on localhost.</string>
+    <string name="socks_proxy_health_unreachable">Not reachable. Start Tailscale and try again.</string>
+    <string name="socks_proxy_health_disabled">Disabled while Tailscale is stopped.</string>
+    <string name="socks_proxy_health_invalid">Invalid endpoint format. Use host:port.</string>
+    <string name="socks_proxy_change_endpoint_title">Change SOCKS endpoint</string>
+    <string name="socks_proxy_change_endpoint_subtitle">Default is 127.0.0.1:1055. Set custom host:port if needed.</string>
 
     <!-- Strings for the main screen -->
     <string name="exit_node">EXIT NODE</string>
