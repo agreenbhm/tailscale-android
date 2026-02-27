@@ -5,6 +5,8 @@ package com.tailscale.ipn.ui.viewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tailscale.ipn.App
+import com.tailscale.ipn.ProxySettings
 import com.tailscale.ipn.UninitializedApp
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.ui.localapi.Client
@@ -43,6 +45,12 @@ open class IpnViewModel : ViewModel() {
 
   val prefs = Notifier.prefs
   val netmap = Notifier.netmap
+  private val _proxySettings =
+      MutableStateFlow(
+          App.get().proxySettingsStore.loadValidatedOrDefault {
+            TSLog.e(TAG, "Invalid proxy settings ignored: ${it.message}")
+          })
+  val proxySettings: StateFlow<ProxySettings> = _proxySettings
   private val _nodeState = MutableStateFlow(NodeState.NONE)
   val nodeState: StateFlow<NodeState> = _nodeState
   val managedByOrganization = MDMSettings.managedByOrganizationName.flow
@@ -175,7 +183,17 @@ open class IpnViewModel : ViewModel() {
             completionHandler(Result.failure(it))
           }
           .onSuccess {
-            val opts = Ipn.Options(UpdatePrefs = editResult.getOrThrow(), AuthKey = authKey)
+            val proxySettings =
+                App.get().proxySettingsStore.loadValidatedOrDefault {
+                  TSLog.e(TAG, "Invalid proxy settings ignored for start(): ${it.message}")
+                }
+            val opts =
+                Ipn.Options(
+                    UpdatePrefs = editResult.getOrThrow(),
+                    AuthKey = authKey,
+                    SOCKS5Server = proxySettings.socks5BindAddress,
+                    HTTPProxy = proxySettings.httpProxyAddress,
+                )
             client.start(opts) { startResult ->
               startResult
                   .onFailure {
@@ -195,6 +213,25 @@ open class IpnViewModel : ViewModel() {
             }
           }
     }
+  }
+
+  fun saveProxySettings(
+      socks5BindAddress: String?,
+      httpProxyAddress: String?,
+      completionHandler: (Result<Unit>) -> Unit = {}
+  ) {
+    val store = App.get().proxySettingsStore
+    val settings =
+        ProxySettings(socks5BindAddress = socks5BindAddress, httpProxyAddress = httpProxyAddress)
+    val validatedSettings = store.validated(settings)
+    validatedSettings.onFailure {
+      completionHandler(Result.failure(it))
+      return
+    }
+
+    store.save(validatedSettings.getOrThrow())
+    _proxySettings.value = store.loadValidatedOrDefault()
+    completionHandler(Result.success(Unit))
   }
 
   fun loginWithAuthKey(authKey: String, completionHandler: (Result<Unit>) -> Unit = {}) {
