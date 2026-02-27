@@ -9,7 +9,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -26,7 +25,10 @@ class ProxySettingsStoreTest {
     editor = mock()
 
     whenever(prefs.edit()).thenReturn(editor)
-    whenever(prefs.getString(any<String>(), org.mockito.kotlin.anyOrNull<String>())).thenAnswer {
+    whenever(
+            prefs.getString(
+                org.mockito.kotlin.any<String>(), org.mockito.kotlin.anyOrNull<String>()))
+        .thenAnswer {
         invocation ->
       val key = invocation.arguments[0] as String
       values[key] ?: invocation.arguments[1] as String?
@@ -37,14 +39,14 @@ class ProxySettingsStoreTest {
           editor
         }
         .whenever(editor)
-        .putString(any<String>(), org.mockito.kotlin.anyOrNull<String>())
+        .putString(org.mockito.kotlin.any<String>(), org.mockito.kotlin.anyOrNull<String>())
 
     doAnswer { invocation ->
           values.remove(invocation.arguments[0] as String)
           editor
         }
         .whenever(editor)
-        .remove(any<String>())
+        .remove(org.mockito.kotlin.any<String>())
 
     whenever(editor.apply()).then {}
 
