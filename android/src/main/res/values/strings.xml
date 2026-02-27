@@ -9,6 +9,8 @@
     <string name="disconnect">Disconnect</string>
     <string name="unknown_user">Unknown user</string>
     <string name="connected">Connected</string>
+    <string name="connected_proxy_only">Connected (proxy-only)</string>
+    <string name="proxy_only_mode_active">Proxy-only mode active</string>
     <string name="using_exit_node">Using exit node (%s)</string>
     <string name="not_connected">Not connected</string>
     <string name="empty" translatable="false"> </string>
@@ -56,6 +58,8 @@
     <string name="bug_report">Bug report</string>
     <string name="use_ts_dns">Use Tailscale DNS</string>
     <string name="internal_debug_options">Internal debug options</string>
+    <string name="proxy_only_mode_setting">Proxy-only mode (no Android VPN)</string>
+    <string name="requires_full_vpn_mode">Requires full VPN mode</string>
 
     <!-- Strings for the main screen -->
     <string name="exit_node">EXIT NODE</string>
@@ -295,7 +299,7 @@
     <string name="vpn_status">VPN status</string>
     <string name="vpn_start">VPN start</string>
     <string name="notifications_delivered_when_user_interaction_is_required_to_establish_the_vpn_tunnel">Notifications delivered when user interaction is required to establish the VPN tunnel.</string>
-    <string name="optional_notifications_which_display_the_status_of_the_vpn_tunnel">Optional notifications which display the status of the VPN tunnel.</string>
+    <string name="optional_notifications_which_display_the_status_of_the_tailscale_connection">Optional notifications which display the status of the Tailscale connection.</string>
     <string name="notifications_delivered_when_a_file_is_received_using_taildrop">Notifications delivered when a file is received using Taildrop.</string>
     <string name="health_channel_name">Errors and warnings</string>
     <string name="health_channel_description">This notification category is used to deliver important status notifications and should be left enabled. For instance, it is used to notify you about errors or warnings that affect Internet connectivity.</string>
