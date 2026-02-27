@@ -14,7 +14,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tailscale.ipn.App
+import com.tailscale.ipn.UninitializedApp
+import com.tailscale.ipn.ui.model.Ipn
 import com.tailscale.ipn.util.ShareFileHelper
+import com.tailscale.ipn.ui.notifier.Notifier
 import com.tailscale.ipn.util.TSLog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -53,6 +56,8 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
   // VpnServiceBuilder.establish, and consumed by UI to reflect VPN state.
   val _vpnActive = MutableStateFlow(false)
   val vpnActive: StateFlow<Boolean> = _vpnActive
+  val _proxyOnlyMode = MutableStateFlow(false)
+  val proxyOnlyMode: StateFlow<Boolean> = _proxyOnlyMode
   // Select Taildrop directory
   var directoryPickerLauncher: ActivityResultLauncher<Uri?>? = null
   private val _triggerDirectoryPicker = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -60,6 +65,7 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
   val TAG = "AppViewModel"
 
   init {
+    _proxyOnlyMode.value = UninitializedApp.get().isProxyOnlyMode()
     observeIncomingTaildrop()
     prepareVpn()
   }
@@ -78,6 +84,10 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
   }
 
   private fun prepareVpn() {
+    if (proxyOnlyMode.value) {
+      setVpnPrepared(true)
+      return
+    }
     // Check if the user has granted permission yet.
     if (!vpnPrepared.value) {
       val vpnIntent = VpnService.prepare(getApplication())
@@ -115,5 +125,24 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
 
   fun setVpnPrepared(isPrepared: Boolean) {
     _vpnPrepared.value = isPrepared
+  }
+
+  fun setProxyOnlyMode(enabled: Boolean) {
+    _proxyOnlyMode.value = enabled
+    UninitializedApp.get().setProxyOnlyMode(enabled)
+
+    val runningState = Notifier.state.value
+    val shouldRestartService = runningState == Ipn.State.Running || runningState == Ipn.State.Starting
+
+    if (enabled) {
+      setVpnPrepared(true)
+      setVpnActive(false)
+    } else {
+      prepareVpn()
+    }
+
+    if (shouldRestartService) {
+      UninitializedApp.get().restartVPN()
+    }
   }
 }

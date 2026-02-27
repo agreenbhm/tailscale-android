@@ -49,7 +49,14 @@ class MainViewModelFactory(private val appViewModel: AppViewModel) : ViewModelPr
 @OptIn(FlowPreview::class)
 class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   // The user readable state of the system
-  val stateRes: StateFlow<Int> = MutableStateFlow(userStringRes(State.NoState, State.NoState, true))
+  val stateRes: StateFlow<Int> =
+      MutableStateFlow(
+          userStringRes(
+              State.NoState,
+              State.NoState,
+              vpnActive = true,
+              proxyOnlyMode = false,
+          ))
   // The expected state of the VPN toggle
   private val _vpnToggleState = MutableStateFlow(false)
   val vpnToggleState: StateFlow<Boolean> = _vpnToggleState
@@ -86,6 +93,7 @@ class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   val isVpnPrepared: StateFlow<Boolean> = appViewModel.vpnPrepared
 
   val isVpnActive: StateFlow<Boolean> = appViewModel.vpnActive
+  val isProxyOnlyMode: StateFlow<Boolean> = appViewModel.proxyOnlyMode
 
   var searchJob: Job? = null
 
@@ -124,15 +132,17 @@ class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   init {
     viewModelScope.launch {
       var previousState: State? = null
-      combine(Notifier.state, isVpnActive) { state, active -> state to active }
-          .collect { (currentState, active) ->
+      combine(Notifier.state, isVpnActive, isProxyOnlyMode) { state, active, proxyOnly ->
+            Triple(state, active, proxyOnly)
+          }
+          .collect { (currentState, active, proxyOnly) ->
             // Determine the correct state resource string
-            stateRes.set(userStringRes(currentState, previousState, active))
+            stateRes.set(userStringRes(currentState, previousState, active, proxyOnly))
             // Determine if the VPN toggle should be on
             val isOn =
                 when {
-                  active && (currentState == State.Running || currentState == State.Starting) ->
-                      true
+                  (active || proxyOnly) &&
+                      (currentState == State.Running || currentState == State.Starting) -> true
                   previousState == State.NoState && currentState == State.Starting -> true
                   else -> false
                 }
@@ -187,6 +197,13 @@ class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   }
 
   fun showVPNPermissionLauncherIfUnauthorized() {
+    if (isProxyOnlyMode.value) {
+      appViewModel.setVpnPrepared(true)
+      startVPN()
+      _requestVpnPermission.value = false
+      return
+    }
+
     val vpnIntent = VpnService.prepare(App.get())
     TSLog.d("VpnPermissions", "vpnIntent=$vpnIntent")
     if (vpnIntent != null) {
@@ -244,17 +261,25 @@ class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   }
 }
 
-private fun userStringRes(currentState: State?, previousState: State?, vpnActive: Boolean): Int {
+private fun userStringRes(
+    currentState: State?,
+    previousState: State?,
+    vpnActive: Boolean,
+    proxyOnlyMode: Boolean
+): Int {
   return when {
     previousState == State.NoState && currentState == State.Starting -> R.string.starting
     currentState == State.NoState -> R.string.placeholder
     currentState == State.InUseOtherUser -> R.string.placeholder
     currentState == State.NeedsLogin ->
-        if (vpnActive) R.string.please_login else R.string.connect_to_vpn
+        if (vpnActive || proxyOnlyMode) R.string.please_login else R.string.connect_to_vpn
     currentState == State.NeedsMachineAuth -> R.string.needs_machine_auth
     currentState == State.Stopped -> R.string.stopped
     currentState == State.Starting -> R.string.starting
-    currentState == State.Running -> if (vpnActive) R.string.connected else R.string.placeholder
+    currentState == State.Running ->
+        if (proxyOnlyMode) R.string.connected_proxy_only
+        else if (vpnActive) R.string.connected
+        else R.string.placeholder
     else -> R.string.placeholder
   }
 }

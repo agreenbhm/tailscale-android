@@ -89,6 +89,18 @@ make apk
 make install
 ```
 
+## AdGuard integration via Tailscale SOCKS
+
+Use this flow to route AdGuard upstream traffic through Tailscale SOCKS reliably:
+
+1. In the Tailscale Android app, open **Settings → AdGuard SOCKS proxy**.
+2. (Optional) Keep the default endpoint `127.0.0.1:1055`, or set a custom `host:port` endpoint.
+3. Ensure Tailscale is logged in to your tailnet and connected.
+4. In AdGuard, configure the upstream proxy as a SOCKS5 proxy using the endpoint shown in Tailscale.
+5. Use the in-app listener health status to confirm that the SOCKS endpoint is reachable.
+
+If listener health is not reachable, reconnect Tailscale and verify the endpoint value before retrying in AdGuard.
+
 ## Building a release
 
 Use `make tag_release` to bump the Android version code, update the version
