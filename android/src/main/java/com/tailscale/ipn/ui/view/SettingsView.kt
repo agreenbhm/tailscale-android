@@ -56,6 +56,7 @@ fun SettingsView(
   val tailnetLockEnabled by viewModel.tailNetLockEnabled.collectAsState()
   val corpDNSEnabled by viewModel.corpDNSEnabled.collectAsState()
   val isVPNPrepared by appViewModel.vpnPrepared.collectAsState()
+  val proxyOnlyMode by appViewModel.proxyOnlyMode.collectAsState()
   val showTailnetLock by MDMSettings.manageTailnetLock.flow.collectAsState()
   val useTailscaleSubnets by MDMSettings.useTailscaleSubnets.flow.collectAsState()
 
@@ -89,8 +90,18 @@ fun SettingsView(
           Lists.ItemDivider()
           Setting.Text(
               R.string.split_tunneling,
-              subtitle = stringResource(R.string.filter_apps_allowed_to_access_tailscale),
+              subtitle =
+                  stringResource(
+                      if (proxyOnlyMode) R.string.requires_full_vpn_mode
+                      else R.string.filter_apps_allowed_to_access_tailscale),
+              enabled = !proxyOnlyMode,
               onClick = settingsNav.onNavigateToSplitTunneling)
+
+          Lists.ItemDivider()
+          Setting.Switch(
+              titleRes = R.string.proxy_only_mode_setting,
+              isOn = proxyOnlyMode,
+              onToggle = { appViewModel.setProxyOnlyMode(it) })
 
           if (showTailnetLock.value == ShowHide.Show) {
             Lists.ItemDivider()
