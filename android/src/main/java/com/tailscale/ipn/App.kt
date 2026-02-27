@@ -83,6 +83,9 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
   private lateinit var connectivityManager: ConnectivityManager
   private lateinit var mdmChangeReceiver: MDMSettingsChangedReceiver
   private lateinit var app: libtailscale.Application
+  val proxySettingsStore: ProxySettingsStore by lazy {
+    ProxySettingsStore { getEncryptedPrefs() }
+  }
   override val viewModelStore: ViewModelStore
     get() = appViewModelStore
 
@@ -116,7 +119,7 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
     createNotificationChannel(
         STATUS_CHANNEL_ID,
         getString(R.string.vpn_status),
-        getString(R.string.optional_notifications_which_display_the_status_of_the_vpn_tunnel),
+        getString(R.string.optional_notifications_which_display_the_status_of_the_tailscale_connection),
         NotificationManagerCompat.IMPORTANCE_MIN)
     createNotificationChannel(
         FILE_CHANNEL_ID,
@@ -151,6 +154,11 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
   }
 
   private fun initializeApp() {
+    proxySettingsStore.validated().onFailure {
+      TSLog.e(TAG, "Invalid saved proxy settings: ${it.message}; clearing stored values")
+      proxySettingsStore.clear()
+    }
+
     // Check if a directory URI has already been stored.
     val storedUri = getStoredDirectoryUri()
     val rm = getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
@@ -464,6 +472,7 @@ open class UninitializedApp : Application() {
     // Key for shared preference that tracks whether or not we're able to start
     // the VPN (i.e. we're logged in and machine is authorized).
     private const val ABLE_TO_START_VPN_KEY = "ableToStartVPN"
+    private const val PROXY_ONLY_MODE_KEY = "proxyOnlyMode"
 
     // The value is 'disallowedApps' as it used to represent
     // only disallowed applications. This has been changed
@@ -514,7 +523,8 @@ open class UninitializedApp : Application() {
   }
 
   fun startVPN() {
-    val intent = Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_START_VPN }
+    val action = if (isProxyOnlyMode()) IPNService.ACTION_START_PROXY_ONLY else IPNService.ACTION_START_VPN
+    val intent = Intent(this, IPNService::class.java).apply { this.action = action }
     // FLAG_UPDATE_CURRENT ensures that if the intent is already pending, the existing intent will
     // be updated rather than creating multiple redundant instances.
     val pendingIntent =
@@ -547,6 +557,14 @@ open class UninitializedApp : Application() {
     } catch (e: Exception) {
       TSLog.e(TAG, "stopVPN hit exception in startService(): $e")
     }
+  }
+
+  fun isProxyOnlyMode(): Boolean {
+    return getUnencryptedPrefs().getBoolean(PROXY_ONLY_MODE_KEY, false)
+  }
+
+  fun setProxyOnlyMode(enabled: Boolean) {
+    getUnencryptedPrefs().edit().putBoolean(PROXY_ONLY_MODE_KEY, enabled).apply()
   }
 
   fun restartVPN() {
@@ -596,9 +614,15 @@ open class UninitializedApp : Application() {
       hideDisconnectAction: Boolean,
       exitNodeName: String? = null
   ): Notification {
-    val title = getString(if (vpnRunning) R.string.connected else R.string.not_connected)
+    val title =
+        getString(
+            if (vpnRunning && isProxyOnlyMode()) R.string.connected_proxy_only
+            else if (vpnRunning) R.string.connected
+            else R.string.not_connected)
     val message =
-        if (vpnRunning && exitNodeName != null) {
+        if (vpnRunning && isProxyOnlyMode()) {
+          getString(R.string.proxy_only_mode_active)
+        } else if (vpnRunning && exitNodeName != null) {
           getString(R.string.using_exit_node, exitNodeName)
         } else null
     val icon = if (vpnRunning) R.drawable.ic_notification else R.drawable.ic_notification_disabled
