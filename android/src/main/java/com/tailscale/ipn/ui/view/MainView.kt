@@ -295,6 +295,7 @@ fun ExitNodeStatus(navAction: () -> Unit, viewModel: MainViewModel) {
   val exitNodePeer = chosenExitNodeId?.let { id -> netmap?.Peers?.find { it.StableID == id } }
   val name = exitNodePeer?.exitNodeName
   val managedByOrganization by viewModel.managedByOrganization.collectAsState()
+  val proxyOnlyMode by viewModel.isProxyOnlyMode.collectAsState()
   Box(
       modifier =
           Modifier.fillMaxWidth().background(color = MaterialTheme.colorScheme.surfaceContainer)) {
@@ -325,7 +326,7 @@ fun ExitNodeStatus(navAction: () -> Unit, viewModel: MainViewModel) {
                     .clip(shape = RoundedCornerShape(10.dp, 10.dp, 10.dp, 10.dp))
                     .fillMaxWidth()) {
               ListItem(
-                  modifier = Modifier.clickable { navAction() },
+                  modifier = if (proxyOnlyMode) Modifier else Modifier.clickable { navAction() },
                   colors =
                       when (nodeState) {
                         NodeState.ACTIVE_AND_RUNNING -> MaterialTheme.colorScheme.primaryListItem
@@ -354,7 +355,9 @@ fun ExitNodeStatus(navAction: () -> Unit, viewModel: MainViewModel) {
                       Text(
                           text =
                               when (nodeState) {
-                                NodeState.NONE -> stringResource(id = R.string.none)
+                                NodeState.NONE ->
+                                    if (proxyOnlyMode) stringResource(R.string.requires_full_vpn_mode)
+                                    else stringResource(id = R.string.none)
                                 NodeState.RUNNING_AS_EXIT_NODE ->
                                     stringResource(id = R.string.running_exit_node)
                                 else -> name ?: ""
@@ -366,14 +369,14 @@ fun ExitNodeStatus(navAction: () -> Unit, viewModel: MainViewModel) {
                           imageVector = Icons.Outlined.ArrowDropDown,
                           contentDescription = null,
                           tint =
-                              if (nodeState == NodeState.NONE)
+                              if (nodeState == NodeState.NONE || proxyOnlyMode)
                                   MaterialTheme.colorScheme.onSurfaceVariant
                               else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
                       )
                     }
                   },
                   trailingContent = {
-                    if (nodeState != NodeState.NONE) {
+                    if (nodeState != NodeState.NONE && !proxyOnlyMode) {
                       Button(
                           colors =
                               when (nodeState) {

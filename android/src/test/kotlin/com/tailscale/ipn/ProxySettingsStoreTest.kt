@@ -28,11 +28,10 @@ class ProxySettingsStoreTest {
     whenever(
             prefs.getString(
                 org.mockito.kotlin.any<String>(), org.mockito.kotlin.anyOrNull<String>()))
-        .thenAnswer {
-        invocation ->
-      val key = invocation.arguments[0] as String
-      values[key] ?: invocation.arguments[1] as String?
-    }
+        .thenAnswer { invocation ->
+          val key = invocation.arguments[0] as String
+          values[key] ?: invocation.arguments[1] as String?
+        }
 
     doAnswer { invocation ->
           values[invocation.arguments[0] as String] = invocation.arguments[1] as String?
