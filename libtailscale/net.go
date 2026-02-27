@@ -92,6 +92,12 @@ func (b *backend) updateTUN(rcfg *router.Config, dcfg *dns.OSConfig) error {
 	if len(rcfg.LocalAddrs) == 0 {
 		return nil
 	}
+	if b.mode == RuntimeModeProxyOnly || vpnService.service == nil {
+		b.lastCfg = rcfg
+		b.lastDNSCfg = dcfg
+		b.logger.Logf("updateTUN: skipping TUN configuration in proxy-only mode")
+		return nil
+	}
 	builder := vpnService.service.NewBuilder()
 	b.logger.Logf("updateTUN: got new builder")
 

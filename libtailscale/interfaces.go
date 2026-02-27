@@ -12,7 +12,12 @@ import (
 // Start starts the application, storing state in the given dataDir and using
 // the given appCtx.
 func Start(dataDir, directFileRoot string, hwAttestationPref bool, appCtx AppContext) Application {
-	return start(dataDir, directFileRoot, hwAttestationPref, appCtx)
+	return start(dataDir, directFileRoot, hwAttestationPref, RuntimeModeTun, appCtx)
+}
+
+// StartWithMode starts the application with the given runtime mode.
+func StartWithMode(dataDir, directFileRoot string, hwAttestationPref bool, mode RuntimeMode, appCtx AppContext) Application {
+	return start(dataDir, directFileRoot, hwAttestationPref, mode, appCtx)
 }
 
 // AppContext provides a context within which the Application is running. This
@@ -97,6 +102,14 @@ type IPNService interface {
 
 	UpdateVpnStatus(bool)
 }
+
+// RuntimeMode determines whether Tailscale should manage a system VPN/TUN.
+type RuntimeMode int
+
+const (
+	RuntimeModeTun RuntimeMode = iota
+	RuntimeModeProxyOnly
+)
 
 // VPNServiceBuilder corresponds to Android's VpnService.Builder.
 type VPNServiceBuilder interface {
