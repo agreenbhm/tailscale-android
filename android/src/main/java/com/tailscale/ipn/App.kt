@@ -83,6 +83,9 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
   private lateinit var connectivityManager: ConnectivityManager
   private lateinit var mdmChangeReceiver: MDMSettingsChangedReceiver
   private lateinit var app: libtailscale.Application
+  val proxySettingsStore: ProxySettingsStore by lazy {
+    ProxySettingsStore { getEncryptedPrefs() }
+  }
   override val viewModelStore: ViewModelStore
     get() = appViewModelStore
 
@@ -151,6 +154,11 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
   }
 
   private fun initializeApp() {
+    proxySettingsStore.validated().onFailure {
+      TSLog.e(TAG, "Invalid saved proxy settings: ${it.message}; clearing stored values")
+      proxySettingsStore.clear()
+    }
+
     // Check if a directory URI has already been stored.
     val storedUri = getStoredDirectoryUri()
     val rm = getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
