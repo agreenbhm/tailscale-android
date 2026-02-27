@@ -78,6 +78,10 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
   }
 
   private fun prepareVpn() {
+    if (!App.get().usesVpnService()) {
+      setVpnPrepared(true)
+      return
+    }
     // Check if the user has granted permission yet.
     if (!vpnPrepared.value) {
       val vpnIntent = VpnService.prepare(getApplication())

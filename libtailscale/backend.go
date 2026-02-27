@@ -58,9 +58,10 @@ type App struct {
 	backend         *ipnlocal.LocalBackend
 	ready           sync.WaitGroup
 	backendMu       sync.Mutex
+	runtimeMode     RuntimeMode
 }
 
-func start(dataDir, directFileRoot string, hwAttestationPref bool, appCtx AppContext) Application {
+func start(dataDir, directFileRoot string, hwAttestationPref bool, mode RuntimeMode, appCtx AppContext) Application {
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("panic in Start %s: %s", p, debug.Stack())
@@ -84,7 +85,7 @@ func start(dataDir, directFileRoot string, hwAttestationPref bool, appCtx AppCon
 		os.Setenv("HOME", dataDir)
 	}
 
-	return newApp(dataDir, directFileRoot, hwAttestationPref, appCtx)
+	return newApp(dataDir, directFileRoot, hwAttestationPref, mode, appCtx)
 }
 
 type backend struct {
@@ -107,6 +108,7 @@ type backend struct {
 	avoidEmptyDNS bool
 
 	appCtx AppContext
+	mode   RuntimeMode
 }
 
 type settingsFunc func(*router.Config, *dns.OSConfig) error
@@ -130,7 +132,7 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 	}
 	configs := make(chan configPair)
 	configErrs := make(chan error)
-	b, err := a.newBackend(a.dataDir, a.appCtx, a.store, func(rcfg *router.Config, dcfg *dns.OSConfig) error {
+	b, err := a.newBackend(a.dataDir, a.appCtx, a.store, a.runtimeMode, func(rcfg *router.Config, dcfg *dns.OSConfig) error {
 		if rcfg == nil {
 			return nil
 		}
@@ -187,7 +189,7 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 		select {
 		case s := <-stateCh:
 			state = s
-			if state >= ipn.Starting && vpnService.service != nil && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
+			if b.mode != RuntimeModeProxyOnly && state >= ipn.Starting && vpnService.service != nil && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				// On state change, check if there are router or config changes requiring an update to VPNBuilder
 				if err := b.updateTUN(cfg.rcfg, cfg.dcfg); err != nil {
 					if errors.Is(err, errMultipleUsers) {
@@ -200,7 +202,7 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 			networkMap = n
 		case c := <-configs:
 			cfg = c
-			if vpnService.service == nil || !b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
+			if b.mode == RuntimeModeProxyOnly || vpnService.service == nil || !b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				configErrs <- nil
 				break
 			}
@@ -240,7 +242,7 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 			if networkMap != nil {
 				// TODO
 			}
-			if state >= ipn.Starting && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
+			if b.mode != RuntimeModeProxyOnly && state >= ipn.Starting && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				if err := b.updateTUN(cfg.rcfg, cfg.dcfg); err != nil {
 					a.closeVpnService(err, b)
 				}
@@ -263,7 +265,7 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 }
 
 func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
-	settings settingsFunc) (*backend, error) {
+	mode RuntimeMode, settings settingsFunc) (*backend, error) {
 
 	sys := tsd.NewSystem()
 	sys.Set(store)
@@ -274,6 +276,7 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 		settings: settings,
 		appCtx:   appCtx,
 		bus:      sys.Bus.Get(),
+		mode:     mode,
 	}
 
 	var logID logid.PrivateID
@@ -395,6 +398,8 @@ func (a *App) closeVpnService(err error, b *backend) {
 	b.lastCfg = nil
 	b.CloseTUNs()
 
-	vpnService.service.DisconnectVPN()
-	vpnService.service = nil
+	if vpnService.service != nil {
+		vpnService.service.DisconnectVPN()
+		vpnService.service = nil
+	}
 }

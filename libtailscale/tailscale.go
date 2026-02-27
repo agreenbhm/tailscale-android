@@ -32,11 +32,12 @@ const (
 	customLoginServerPrefKey = "customloginserver"
 )
 
-func newApp(dataDir, directFileRoot string, hardwareAttestationPref bool, appCtx AppContext) Application {
+func newApp(dataDir, directFileRoot string, hardwareAttestationPref bool, mode RuntimeMode, appCtx AppContext) Application {
 	a := &App{
 		directFileRoot: directFileRoot,
 		dataDir:        dataDir,
 		appCtx:         appCtx,
+		runtimeMode:    mode,
 	}
 	a.ready.Add(2)
 

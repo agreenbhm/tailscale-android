@@ -88,6 +88,7 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
 
   private val appViewModelStore: ViewModelStore by lazy { ViewModelStore() }
   var healthNotifier: HealthNotifier? = null
+  private val runtimeMode = RuntimeMode.fromValue(BuildConfig.TAILSCALE_RUNTIME_MODE)
 
   override fun getPlatformDNSConfig(): String = dns.dnsConfigAsString
 
@@ -219,7 +220,13 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
    * Tailscale because directFileRoot must be set before LocalBackend starts being used.
    */
   fun startLibtailscale(directFileRoot: String, hardwareAttestation: Boolean) {
-    app = Libtailscale.start(this.filesDir.absolutePath, directFileRoot, hardwareAttestation, this)
+    app =
+        Libtailscale.startWithMode(
+            this.filesDir.absolutePath,
+            directFileRoot,
+            hardwareAttestation,
+            runtimeMode.libtailscaleMode,
+            this)
     ShareFileHelper.init(this, app, directFileRoot, applicationScope)
     Request.setApp(app)
     Notifier.setApp(app)
@@ -509,12 +516,17 @@ open class UninitializedApp : Application() {
     return getUnencryptedPrefs().getBoolean(ABLE_TO_START_VPN_KEY, false)
   }
 
+  fun usesVpnService(): Boolean {
+    return runtimeMode == RuntimeMode.Tun
+  }
+
   private fun getUnencryptedPrefs(): SharedPreferences {
     return getSharedPreferences(UNENCRYPTED_PREFERENCES, MODE_PRIVATE)
   }
 
   fun startVPN() {
-    val intent = Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_START_VPN }
+    val intent =
+        Intent(this, runtimeMode.serviceClass.java).apply { action = IPNService.ACTION_START_VPN }
     // FLAG_UPDATE_CURRENT ensures that if the intent is already pending, the existing intent will
     // be updated rather than creating multiple redundant instances.
     val pendingIntent =
@@ -539,7 +551,8 @@ open class UninitializedApp : Application() {
   }
 
   fun stopVPN() {
-    val intent = Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_STOP_VPN }
+    val intent =
+        Intent(this, runtimeMode.serviceClass.java).apply { action = IPNService.ACTION_STOP_VPN }
     try {
       startService(intent)
     } catch (illegalStateException: IllegalStateException) {
@@ -551,7 +564,7 @@ open class UninitializedApp : Application() {
 
   fun restartVPN() {
     val intent =
-        Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_RESTART_VPN }
+        Intent(this, runtimeMode.serviceClass.java).apply { action = IPNService.ACTION_RESTART_VPN }
     try {
       startService(intent)
     } catch (illegalStateException: IllegalStateException) {

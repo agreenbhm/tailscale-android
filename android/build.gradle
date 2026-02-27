@@ -48,6 +48,8 @@ android {
         // Set it to false either here or in your local.properties file to
         // disable this behaviour.
         buildConfigField "boolean", "USE_GOOGLE_DNS_FALLBACK", getLocalProperty("tailscale.useGoogleDnsFallback", "true")
+
+        buildConfigField "int", "TAILSCALE_RUNTIME_MODE", getLocalProperty("tailscale.runtimeMode", "0")
     }
 
     compileOptions {

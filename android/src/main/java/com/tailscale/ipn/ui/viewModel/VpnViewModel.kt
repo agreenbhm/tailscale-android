@@ -7,6 +7,7 @@ import android.app.Application
 import android.net.VpnService
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import com.tailscale.ipn.App
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,10 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   private fun prepareVpn() {
+    if (!App.get().usesVpnService()) {
+      setVpnPrepared(true)
+      return
+    }
     // Check if the user has granted permission yet.
     if (!vpnPrepared.value) {
       val vpnIntent = VpnService.prepare(getApplication())
