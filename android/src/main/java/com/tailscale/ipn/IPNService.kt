@@ -59,12 +59,6 @@ open class IPNService : VpnService(), libtailscale.IPNService {
           Libtailscale.requestVPN(this)
           START_STICKY
         }
-        ACTION_START_PROXY_ONLY -> {
-          showForegroundNotification()
-          app.setWantRunning(true)
-          updateVpnStatus(false)
-          START_STICKY
-        }
         "android.net.VpnService" -> {
           // This means we were started by Android due to Always On VPN.
           // We show a non-foreground notification because we weren't
@@ -84,13 +78,9 @@ open class IPNService : VpnService(), libtailscale.IPNService {
           // This means that we were restarted after the service was killed
           // (potentially due to OOM).
           if (UninitializedApp.get().isAbleToStartVPN()) {
-            showForegroundNotification()
+            showForegroundNotification() 
             App.get()
-            if (app.isProxyOnlyMode()) {
-              updateVpnStatus(false)
-            } else {
-              Libtailscale.requestVPN(this)
-            }
+            Libtailscale.requestVPN(this)
             START_STICKY
           } else {
             START_NOT_STICKY
@@ -226,7 +216,6 @@ open class IPNService : VpnService(), libtailscale.IPNService {
 
   companion object {
     const val ACTION_START_VPN = "com.tailscale.ipn.START_VPN"
-    const val ACTION_START_PROXY_ONLY = "com.tailscale.ipn.START_PROXY_ONLY"
     const val ACTION_STOP_VPN = "com.tailscale.ipn.STOP_VPN"
     const val ACTION_RESTART_VPN = "com.tailscale.ipn.RESTART_VPN"
   }

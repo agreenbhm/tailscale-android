@@ -26,22 +26,12 @@ var (
 
 	// onShareFileHelper receives ShareFileHelper references when the app is initialized so that files can be received via Storage Access Framework
 	onShareFileHelper = make(chan ShareFileHelper, 1)
-
-	// onSOCKSProxyConfigChanged is notified when the UI changes SOCKS proxy settings.
-	onSOCKSProxyConfigChanged = make(chan struct{}, 1)
 )
 
 // ifname is the interface name retrieved from LinkProperties on network change. An empty string is used if there is no network available.
 func OnDNSConfigChanged(ifname string) {
 	select {
 	case onDNSConfigChanged <- ifname:
-	default:
-	}
-}
-
-func OnSOCKSProxyConfigChanged() {
-	select {
-	case onSOCKSProxyConfigChanged <- struct{}{}:
 	default:
 	}
 }
