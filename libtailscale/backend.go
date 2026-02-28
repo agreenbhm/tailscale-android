@@ -8,13 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -30,7 +28,6 @@ import (
 	"tailscale.com/net/dns"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
-	"tailscale.com/net/socks5"
 	"tailscale.com/net/tsdial"
 	"tailscale.com/paths"
 	"tailscale.com/tsd"
@@ -110,12 +107,6 @@ type backend struct {
 	avoidEmptyDNS bool
 
 	appCtx AppContext
-
-	dialer *tsdial.Dialer
-
-	socksMu       sync.Mutex
-	socksListener net.Listener
-	socksAddr     string
 }
 
 type settingsFunc func(*router.Config, *dns.OSConfig) error
@@ -196,7 +187,6 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 		select {
 		case s := <-stateCh:
 			state = s
-			b.syncSOCKSProxy(state)
 			if state >= ipn.Starting && vpnService.service != nil && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				// On state change, check if there are router or config changes requiring an update to VPNBuilder
 				if err := b.updateTUN(cfg.rcfg, cfg.dcfg); err != nil {
@@ -268,90 +258,8 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 			// that independently of userspace engine network changes which may
 			// eliminate some unnecessary work.
 			go b.NetworkChanged(i)
-		case <-onSOCKSProxyConfigChanged:
-			b.syncSOCKSProxy(state)
 		}
 	}
-}
-
-const (
-	defaultSOCKSProxyEndpoint = "127.0.0.1:1055"
-	socksProxyEndpointPrefKey = "socks5proxyendpoint"
-)
-
-func (b *backend) socksProxyEndpoint() string {
-	endpoint, err := b.appCtx.DecryptFromPref(socksProxyEndpointPrefKey)
-	if err != nil {
-		log.Printf("failed reading SOCKS endpoint override, using default: %v", err)
-		return defaultSOCKSProxyEndpoint
-	}
-	endpoint = strings.TrimSpace(endpoint)
-	if endpoint == "" {
-		return defaultSOCKSProxyEndpoint
-	}
-	if _, _, err := net.SplitHostPort(endpoint); err != nil {
-		log.Printf("invalid SOCKS endpoint override %q, using default", endpoint)
-		return defaultSOCKSProxyEndpoint
-	}
-	return endpoint
-}
-
-func (b *backend) syncSOCKSProxy(state ipn.State) {
-	if state < ipn.Starting {
-		b.stopSOCKSProxy()
-		return
-	}
-	b.startSOCKSProxy()
-}
-
-func (b *backend) startSOCKSProxy() {
-	endpoint := b.socksProxyEndpoint()
-
-	b.socksMu.Lock()
-	defer b.socksMu.Unlock()
-
-	if b.socksListener != nil && b.socksAddr == endpoint {
-		return
-	}
-	if b.socksListener != nil {
-		_ = b.socksListener.Close()
-		b.socksListener = nil
-		b.socksAddr = ""
-	}
-
-	ln, err := net.Listen("tcp", endpoint)
-	if err != nil {
-		log.Printf("failed to start SOCKS5 listener on %s: %v", endpoint, err)
-		return
-	}
-	b.socksListener = ln
-	b.socksAddr = endpoint
-
-	server := &socks5.Server{Logf: logger.WithPrefix(log.Printf, "socks5: "), Dialer: b.dialer.UserDial}
-	go func(listener net.Listener) {
-		if err := server.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
-			log.Printf("SOCKS5 listener exited: %v", err)
-		}
-		b.socksMu.Lock()
-		defer b.socksMu.Unlock()
-		if b.socksListener == listener {
-			b.socksListener = nil
-			b.socksAddr = ""
-		}
-	}(ln)
-
-	log.Printf("SOCKS5 listening on %s", endpoint)
-}
-
-func (b *backend) stopSOCKSProxy() {
-	b.socksMu.Lock()
-	defer b.socksMu.Unlock()
-	if b.socksListener == nil {
-		return
-	}
-	_ = b.socksListener.Close()
-	b.socksListener = nil
-	b.socksAddr = ""
 }
 
 func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
@@ -366,7 +274,6 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 		settings: settings,
 		appCtx:   appCtx,
 		bus:      sys.Bus.Get(),
-		dialer:   new(tsdial.Dialer),
 	}
 
 	var logID logid.PrivateID
@@ -393,6 +300,7 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 	}
 	b.netMon = netMon
 	b.setupLogs(dataDir, logID, logf, sys.HealthTracker.Get())
+	dialer := new(tsdial.Dialer)
 	vf := &VPNFacade{
 		SetBoth:           b.setCfg,
 		GetBaseConfigFunc: b.getDNSBaseConfig,
@@ -402,7 +310,7 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 		Router:         vf,
 		DNS:            vf,
 		ReconfigureVPN: vf.ReconfigureVPN,
-		Dialer:         b.dialer,
+		Dialer:         dialer,
 		SetSubsystem:   sys.Set,
 		NetMon:         b.netMon,
 		HealthTracker:  sys.HealthTracker.Get(),
@@ -415,7 +323,7 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 	}
 	sys.Set(engine)
 	b.logIDPublic = logID.Public()
-	ns, err := netstack.Create(logf, sys.Tun.Get(), engine, sys.MagicSock.Get(), b.dialer, sys.DNSManager.Get(), sys.ProxyMapper())
+	ns, err := netstack.Create(logf, sys.Tun.Get(), engine, sys.MagicSock.Get(), dialer, sys.DNSManager.Get(), sys.ProxyMapper())
 	if err != nil {
 		return nil, fmt.Errorf("netstack.Create: %w", err)
 	}

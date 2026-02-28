@@ -8,18 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
@@ -41,7 +36,6 @@ import com.tailscale.ipn.ui.theme.listItem
 import com.tailscale.ipn.ui.util.AndroidTVUtil
 import com.tailscale.ipn.ui.util.AndroidTVUtil.isAndroidTV
 import com.tailscale.ipn.ui.util.AppVersion
-import com.tailscale.ipn.ui.util.ClipboardValueView
 import com.tailscale.ipn.ui.util.Lists
 import com.tailscale.ipn.ui.util.set
 import com.tailscale.ipn.ui.viewModel.AppViewModel
@@ -62,13 +56,8 @@ fun SettingsView(
   val tailnetLockEnabled by viewModel.tailNetLockEnabled.collectAsState()
   val corpDNSEnabled by viewModel.corpDNSEnabled.collectAsState()
   val isVPNPrepared by appViewModel.vpnPrepared.collectAsState()
-  val proxyOnlyMode by appViewModel.proxyOnlyMode.collectAsState()
   val showTailnetLock by MDMSettings.manageTailnetLock.flow.collectAsState()
   val useTailscaleSubnets by MDMSettings.useTailscaleSubnets.flow.collectAsState()
-  val socksEndpoint by viewModel.socksEndpoint.collectAsState()
-  val socksHealth by viewModel.socksHealth.collectAsState()
-  val showSocksEndpointDialog = remember { mutableStateOf(false) }
-  val socksEndpointDraft = remember { mutableStateOf(socksEndpoint) }
 
   Scaffold(
       topBar = {
@@ -100,18 +89,8 @@ fun SettingsView(
           Lists.ItemDivider()
           Setting.Text(
               R.string.split_tunneling,
-              subtitle =
-                  stringResource(
-                      if (proxyOnlyMode) R.string.requires_full_vpn_mode
-                      else R.string.filter_apps_allowed_to_access_tailscale),
-              enabled = !proxyOnlyMode,
+              subtitle = stringResource(R.string.filter_apps_allowed_to_access_tailscale),
               onClick = settingsNav.onNavigateToSplitTunneling)
-
-          Lists.ItemDivider()
-          Setting.Switch(
-              titleRes = R.string.proxy_only_mode_setting,
-              isOn = proxyOnlyMode,
-              onToggle = { appViewModel.setProxyOnlyMode(it) })
 
           if (showTailnetLock.value == ShowHide.Show) {
             Lists.ItemDivider()
@@ -140,38 +119,6 @@ fun SettingsView(
           }
 
           Lists.SectionDivider()
-          Lists.MutedHeader(text = stringResource(R.string.socks_proxy_header))
-          ClipboardValueView(
-              value = socksEndpoint,
-              title = stringResource(R.string.socks_proxy_endpoint_title),
-              subtitle = stringResource(R.string.copy_socks_proxy_endpoint_hint))
-
-          Lists.ItemDivider()
-          Setting.Text(
-              title = stringResource(R.string.socks_proxy_health_title),
-              subtitle =
-                  stringResource(
-                      when (socksHealth) {
-                        SettingsViewModel.SocksHealthStatus.HEALTHY ->
-                            R.string.socks_proxy_health_healthy
-                        SettingsViewModel.SocksHealthStatus.UNREACHABLE ->
-                            R.string.socks_proxy_health_unreachable
-                        SettingsViewModel.SocksHealthStatus.DISABLED ->
-                            R.string.socks_proxy_health_disabled
-                        SettingsViewModel.SocksHealthStatus.INVALID -> R.string.socks_proxy_health_invalid
-                        else -> R.string.socks_proxy_health_checking
-                      }))
-
-          Lists.ItemDivider()
-          Setting.Text(
-              title = stringResource(R.string.socks_proxy_change_endpoint_title),
-              subtitle = stringResource(R.string.socks_proxy_change_endpoint_subtitle),
-              onClick = {
-                socksEndpointDraft.value = socksEndpoint
-                showSocksEndpointDialog.value = true
-              })
-
-          Lists.SectionDivider()
           Setting.Text(R.string.bug_report, onClick = settingsNav.onNavigateToBugReport)
 
           Lists.ItemDivider()
@@ -188,33 +135,6 @@ fun SettingsView(
           }
         }
       }
-
-  if (showSocksEndpointDialog.value) {
-    AlertDialog(
-        onDismissRequest = { showSocksEndpointDialog.value = false },
-        title = { Text(stringResource(R.string.socks_proxy_change_endpoint_title)) },
-        text = {
-          OutlinedTextField(
-              value = socksEndpointDraft.value,
-              onValueChange = { socksEndpointDraft.value = it },
-              label = { Text(stringResource(R.string.socks_proxy_endpoint_title)) },
-              singleLine = true)
-        },
-        confirmButton = {
-          TextButton(
-              onClick = {
-                viewModel.updateSocksEndpoint(socksEndpointDraft.value)
-                showSocksEndpointDialog.value = false
-              }) {
-                Text(stringResource(R.string.save))
-              }
-        },
-        dismissButton = {
-          TextButton(onClick = { showSocksEndpointDialog.value = false }) {
-            Text(stringResource(R.string.cancel))
-          }
-        })
-  }
 }
 
 object Setting {

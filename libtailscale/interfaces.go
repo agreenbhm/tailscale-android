@@ -252,7 +252,3 @@ func SetShareFileHelper(fileHelper ShareFileHelper) {
 		onShareFileHelper <- fileHelper
 	}
 }
-
-func NotifySocksProxyConfigChanged() {
-	OnSOCKSProxyConfigChanged()
-}

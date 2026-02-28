@@ -9,9 +9,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.tailscale.ipn.UninitializedApp
-import com.tailscale.ipn.ui.model.Ipn
-import com.tailscale.ipn.ui.notifier.Notifier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -38,20 +35,13 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
   // VpnServiceBuilder.establish, and consumed by UI to reflect VPN state.
   val _vpnActive = MutableStateFlow(false)
   val vpnActive: StateFlow<Boolean> = _vpnActive
-  val _proxyOnlyMode = MutableStateFlow(false)
-  val proxyOnlyMode: StateFlow<Boolean> = _proxyOnlyMode
   val TAG = "VpnViewModel"
 
   init {
-    _proxyOnlyMode.value = UninitializedApp.get().isProxyOnlyMode()
     prepareVpn()
   }
 
   private fun prepareVpn() {
-    if (proxyOnlyMode.value) {
-      setVpnPrepared(true)
-      return
-    }
     // Check if the user has granted permission yet.
     if (!vpnPrepared.value) {
       val vpnIntent = VpnService.prepare(getApplication())
@@ -71,24 +61,5 @@ class VpnViewModel(application: Application) : AndroidViewModel(application) {
 
   fun setVpnPrepared(isPrepared: Boolean) {
     _vpnPrepared.value = isPrepared
-  }
-
-  fun setProxyOnlyMode(enabled: Boolean) {
-    _proxyOnlyMode.value = enabled
-    UninitializedApp.get().setProxyOnlyMode(enabled)
-
-    val runningState = Notifier.state.value
-    val shouldRestartService = runningState == Ipn.State.Running || runningState == Ipn.State.Starting
-
-    if (enabled) {
-      setVpnPrepared(true)
-      setVpnActive(false)
-    } else {
-      prepareVpn()
-    }
-
-    if (shouldRestartService) {
-      UninitializedApp.get().restartVPN()
-    }
   }
 }
