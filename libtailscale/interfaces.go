@@ -48,6 +48,13 @@ type AppContext interface {
 	// IsChromeOS reports whether we're on a ChromeOS device.
 	IsChromeOS() (bool, error)
 
+	// IsProxyOnlyMode reports whether runtime mode should avoid Android VPN/TUN setup.
+	IsProxyOnlyMode() bool
+
+	// GetSocks5ServerAddress returns the local listen address for the SOCKS5 proxy,
+	// or empty string to disable it.
+	GetSocks5ServerAddress() string
+
 	// GetInterfacesAsJson gets a JSON representation of all network
 	// interfaces.
 	GetInterfacesAsJson() (string, error)

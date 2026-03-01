@@ -16,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tailscale.ipn.App
 import com.tailscale.ipn.R
+import com.tailscale.ipn.TailscaleMode
 import com.tailscale.ipn.mdm.MDMSettings
 import com.tailscale.ipn.ui.model.Ipn
 import com.tailscale.ipn.ui.model.Ipn.State
@@ -187,6 +188,14 @@ class MainViewModel(private val appViewModel: AppViewModel) : IpnViewModel() {
   }
 
   fun showVPNPermissionLauncherIfUnauthorized() {
+    if (App.get().tailscaleMode() == TailscaleMode.PROXY_ONLY) {
+      TSLog.d("VpnPermissions", "Skipping VpnService.prepare in PROXY_ONLY mode")
+      appViewModel.setVpnPrepared(true)
+      startVPN()
+      _requestVpnPermission.value = false
+      return
+    }
+
     val vpnIntent = VpnService.prepare(App.get())
     TSLog.d("VpnPermissions", "vpnIntent=$vpnIntent")
     if (vpnIntent != null) {

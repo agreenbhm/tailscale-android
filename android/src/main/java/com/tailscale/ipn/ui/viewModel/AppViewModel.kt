@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tailscale.ipn.App
+import com.tailscale.ipn.TailscaleMode
 import com.tailscale.ipn.util.ShareFileHelper
 import com.tailscale.ipn.util.TSLog
 import kotlinx.coroutines.flow.Flow
@@ -78,6 +79,12 @@ class AppViewModel(application: Application, private val taildropPrompt: Flow<Un
   }
 
   private fun prepareVpn() {
+    if (App.get().tailscaleMode() == TailscaleMode.PROXY_ONLY) {
+      setVpnPrepared(true)
+      Log.d(TAG, "Skipping VpnService.prepare in PROXY_ONLY mode")
+      return
+    }
+
     // Check if the user has granted permission yet.
     if (!vpnPrepared.value) {
       val vpnIntent = VpnService.prepare(getApplication())
