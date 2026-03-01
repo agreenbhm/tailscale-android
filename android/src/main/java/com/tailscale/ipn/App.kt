@@ -318,6 +318,15 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
     return packageManager.hasSystemFeature("android.hardware.type.pc")
   }
 
+  override fun isProxyOnlyMode(): Boolean {
+    return tailscaleMode() == TailscaleMode.PROXY_ONLY
+  }
+
+  override fun getSocks5ServerAddress(): String {
+    return getUnencryptedPrefs().getString(SOCKS5_SERVER_ADDRESS_KEY, DEFAULT_SOCKS5_SERVER_ADDRESS)
+        ?: DEFAULT_SOCKS5_SERVER_ADDRESS
+  }
+
   @Serializable
   data class AddrJson(
       val ip: String,
@@ -475,6 +484,13 @@ open class UninitializedApp : Application() {
 
     // File for shared preferences that are not encrypted.
     private const val UNENCRYPTED_PREFERENCES = "unencrypted"
+
+    // Selected Tailscale runtime mode.
+    private const val TAILSCALE_MODE_KEY = "tailscaleMode"
+
+    // SOCKS5 listen address for proxy-only mode.
+    const val SOCKS5_SERVER_ADDRESS_KEY = "socks5ServerAddress"
+    const val DEFAULT_SOCKS5_SERVER_ADDRESS = "127.0.0.1:1055"
     private lateinit var appInstance: UninitializedApp
     lateinit var notificationManager: NotificationManagerCompat
 
@@ -509,11 +525,41 @@ open class UninitializedApp : Application() {
     return getUnencryptedPrefs().getBoolean(ABLE_TO_START_VPN_KEY, false)
   }
 
-  private fun getUnencryptedPrefs(): SharedPreferences {
+  /**
+   * setTailscaleMode persists the selected runtime mode.
+   *
+   * This is intentionally stored in unencrypted preferences to make it
+   * available before backend initialization.
+   */
+  fun setTailscaleMode(mode: TailscaleMode) {
+    getUnencryptedPrefs().edit().putString(TAILSCALE_MODE_KEY, mode.name).apply()
+  }
+
+  /**
+   * tailscaleMode returns the selected runtime mode.
+   *
+   * VPN is the default mode to preserve existing behavior.
+   */
+  fun tailscaleMode(): TailscaleMode {
+    val value = getUnencryptedPrefs().getString(TAILSCALE_MODE_KEY, null)
+    return TailscaleMode.fromStoredValue(value)
+  }
+
+  fun setSocks5ServerAddress(address: String) {
+    getUnencryptedPrefs().edit().putString(SOCKS5_SERVER_ADDRESS_KEY, address).apply()
+  }
+
+  protected fun getUnencryptedPrefs(): SharedPreferences {
     return getSharedPreferences(UNENCRYPTED_PREFERENCES, MODE_PRIVATE)
   }
 
   fun startVPN() {
+    if (tailscaleMode() == TailscaleMode.PROXY_ONLY) {
+      TSLog.d(TAG, "startVPN: PROXY_ONLY mode, setting WantRunning without starting IPNService")
+      App.get().setWantRunning(true)
+      return
+    }
+
     val intent = Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_START_VPN }
     // FLAG_UPDATE_CURRENT ensures that if the intent is already pending, the existing intent will
     // be updated rather than creating multiple redundant instances.
@@ -539,6 +585,12 @@ open class UninitializedApp : Application() {
   }
 
   fun stopVPN() {
+    if (tailscaleMode() == TailscaleMode.PROXY_ONLY) {
+      TSLog.d(TAG, "stopVPN: PROXY_ONLY mode, clearing WantRunning without stopping IPNService")
+      App.get().setWantRunning(false)
+      return
+    }
+
     val intent = Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_STOP_VPN }
     try {
       startService(intent)
@@ -550,6 +602,12 @@ open class UninitializedApp : Application() {
   }
 
   fun restartVPN() {
+    if (tailscaleMode() == TailscaleMode.PROXY_ONLY) {
+      TSLog.d(TAG, "restartVPN: PROXY_ONLY mode, toggling WantRunning without restarting IPNService")
+      App.get().setWantRunning(false) { App.get().setWantRunning(true) }
+      return
+    }
+
     val intent =
         Intent(this, IPNService::class.java).apply { action = IPNService.ACTION_RESTART_VPN }
     try {

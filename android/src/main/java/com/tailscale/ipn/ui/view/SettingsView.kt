@@ -58,6 +58,7 @@ fun SettingsView(
   val isVPNPrepared by appViewModel.vpnPrepared.collectAsState()
   val showTailnetLock by MDMSettings.manageTailnetLock.flow.collectAsState()
   val useTailscaleSubnets by MDMSettings.useTailscaleSubnets.flow.collectAsState()
+  val isProxyOnlyMode by viewModel.isProxyOnlyMode.collectAsState()
 
   Scaffold(
       topBar = {
@@ -110,6 +111,13 @@ fun SettingsView(
             Lists.ItemDivider()
             Setting.Text(R.string.permissions, onClick = settingsNav.onNavigateToPermissions)
           }
+
+          Lists.ItemDivider()
+          Setting.Switch(
+              titleRes = R.string.proxy_only_mode,
+              isOn = isProxyOnlyMode,
+              onToggle = { enabled -> viewModel.setProxyOnlyMode(enabled) })
+          Lists.InfoItem(stringResource(R.string.proxy_only_mode_subtitle))
 
           managedByOrganization.value?.let {
             Lists.ItemDivider()
