@@ -358,6 +358,13 @@
     <string name="proxy_only_mode">Proxy-only mode</string>
     <string name="proxy_only_mode_subtitle">Run Tailscale without preparing Android VPN. Use this when another VPN app handles the device VPN tunnel.</string>
     <string name="socks5_proxy_address">SOCKS5 proxy address</string>
+    <string name="socks5_proxy_address_invalid">Enter localhost, 127.0.0.1, or ::1 with a valid port (for example, 127.0.0.1:1055).</string>
+    <string name="proxy_only_mode_adguard_hint">In AdGuard, configure an outbound SOCKS5 proxy at %1$s.</string>
+    <string name="socks5_status_format">SOCKS5 status: %1$s</string>
+    <string name="socks5_status_disabled">Disabled (VPN mode)</string>
+    <string name="socks5_status_starting">Starting</string>
+    <string name="socks5_status_listening">Listening</string>
+    <string name="socks5_status_not_listening">Not reachable on localhost</string>
     <string name="specifies_a_device_name_to_be_used_instead_of_the_automatic_default">Specifies a device name to be used instead of the automatic default.</string>
     <string name="hostname">Hostname</string>
     <string name="failed_to_save">Failed to save</string>
