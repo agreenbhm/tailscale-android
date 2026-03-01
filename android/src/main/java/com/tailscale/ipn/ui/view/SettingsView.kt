@@ -47,6 +47,7 @@ import com.tailscale.ipn.ui.util.set
 import com.tailscale.ipn.ui.viewModel.AppViewModel
 import com.tailscale.ipn.ui.viewModel.SettingsNav
 import com.tailscale.ipn.ui.viewModel.SettingsViewModel
+import com.tailscale.ipn.ui.viewModel.Socks5ProxyStatus
 
 @Composable
 fun SettingsView(
@@ -66,6 +67,7 @@ fun SettingsView(
   val useTailscaleSubnets by MDMSettings.useTailscaleSubnets.flow.collectAsState()
   val isProxyOnlyMode by viewModel.isProxyOnlyMode.collectAsState()
   val socks5ServerAddress by viewModel.socks5ServerAddress.collectAsState()
+  val socks5ProxyStatus by viewModel.socks5ProxyStatus.collectAsState()
 
   var showSocksDialog by remember { mutableStateOf(false) }
   var socksInput by remember { mutableStateOf("") }
@@ -175,6 +177,17 @@ fun SettingsView(
                 socksInputError = false
                 showSocksDialog = true
               })
+          Lists.InfoItem(
+              stringResource(R.string.proxy_only_mode_adguard_hint, socks5ServerAddress))
+          val socks5StatusMessage =
+              when (socks5ProxyStatus) {
+                Socks5ProxyStatus.Disabled -> stringResource(R.string.socks5_status_disabled)
+                Socks5ProxyStatus.Starting -> stringResource(R.string.socks5_status_starting)
+                Socks5ProxyStatus.Listening -> stringResource(R.string.socks5_status_listening)
+                Socks5ProxyStatus.NotListening ->
+                    stringResource(R.string.socks5_status_not_listening)
+              }
+          Lists.InfoItem(stringResource(R.string.socks5_status_format, socks5StatusMessage))
 
           managedByOrganization.value?.let {
             Lists.ItemDivider()
