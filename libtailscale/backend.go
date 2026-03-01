@@ -391,8 +391,14 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 	go func() {
 		err := lb.Start(ipn.Options{})
 		if err != nil {
-			log.Printf("Failed to start LocalBackend, panicking: %s", err)
-			panic(err)
+			mode := "vpn"
+			if a.appCtx.IsProxyOnlyMode() {
+				mode = "proxy-only"
+			}
+			log.Printf("LocalBackend start failed (mode=%s, socks5=%q): %v", mode, a.appCtx.GetSocks5ServerAddress(), err)
+			a.appCtx.Log("BackendStart", fmt.Sprintf("LocalBackend start failed (mode=%s, socks5=%q): %v", mode, a.appCtx.GetSocks5ServerAddress(), err))
+			a.ready.Done()
+			return
 		}
 		a.ready.Done()
 	}()
