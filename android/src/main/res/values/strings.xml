@@ -28,6 +28,7 @@
     <string name="on">On</string>
     <string name="try_again">Try again</string>
     <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
 
     <!-- Strings for the about screen -->
     <string name="app_name" translatable="false">Tailscale</string>
@@ -354,6 +355,9 @@
     <string name="run_as_subnet_router">Run as subnet router</string>
     <string name="use_tailscale_subnets_subtitle">Route traffic according to your network\'s rules. Some networks require this to access IP addresses that don\'t start with 100.x.y.z.</string>
     <string name="subnet_routing">Subnet routing</string>
+    <string name="proxy_only_mode">Proxy-only mode</string>
+    <string name="proxy_only_mode_subtitle">Run Tailscale without preparing Android VPN. Use this when another VPN app handles the device VPN tunnel.</string>
+    <string name="socks5_proxy_address">SOCKS5 proxy address</string>
     <string name="specifies_a_device_name_to_be_used_instead_of_the_automatic_default">Specifies a device name to be used instead of the automatic default.</string>
     <string name="hostname">Hostname</string>
     <string name="failed_to_save">Failed to save</string>
