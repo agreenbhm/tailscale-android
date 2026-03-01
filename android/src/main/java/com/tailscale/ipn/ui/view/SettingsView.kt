@@ -84,7 +84,12 @@ fun SettingsView(
               },
               singleLine = true,
               isError = socksInputError,
-              label = { Text(stringResource(R.string.socks5_proxy_address)) })
+              label = { Text(stringResource(R.string.socks5_proxy_address)) },
+              supportingText = {
+                if (socksInputError) {
+                  Text(stringResource(R.string.socks5_proxy_address_invalid))
+                }
+              })
         },
         confirmButton = {
           TextButton(

@@ -64,9 +64,13 @@ class SettingsViewModel : IpnViewModel() {
   }
 
   fun setProxyOnlyMode(enabled: Boolean) {
+    val modeChanged = isProxyOnlyMode.value != enabled
     val mode = if (enabled) TailscaleMode.PROXY_ONLY else TailscaleMode.VPN
     App.get().setTailscaleMode(mode)
     isProxyOnlyMode.set(enabled)
+    if (modeChanged) {
+      App.get().restartVPN()
+    }
   }
 
 
@@ -75,8 +79,14 @@ class SettingsViewModel : IpnViewModel() {
     if (!isValidHostPort(trimmed)) {
       return false
     }
+    if (socks5ServerAddress.value == trimmed) {
+      return true
+    }
     App.get().setSocks5ServerAddress(trimmed)
     socks5ServerAddress.set(trimmed)
+    if (isProxyOnlyMode.value) {
+      App.get().restartVPN()
+    }
     return true
   }
 
