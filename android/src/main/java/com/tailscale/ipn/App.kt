@@ -318,6 +318,15 @@ class App : UninitializedApp(), libtailscale.AppContext, ViewModelStoreOwner {
     return packageManager.hasSystemFeature("android.hardware.type.pc")
   }
 
+  override fun isProxyOnlyMode(): Boolean {
+    return tailscaleMode() == TailscaleMode.PROXY_ONLY
+  }
+
+  override fun getSocks5ServerAddress(): String {
+    return getUnencryptedPrefs().getString(SOCKS5_SERVER_ADDRESS_KEY, DEFAULT_SOCKS5_SERVER_ADDRESS)
+        ?: DEFAULT_SOCKS5_SERVER_ADDRESS
+  }
+
   @Serializable
   data class AddrJson(
       val ip: String,
@@ -478,6 +487,10 @@ open class UninitializedApp : Application() {
 
     // Selected Tailscale runtime mode.
     private const val TAILSCALE_MODE_KEY = "tailscaleMode"
+
+    // SOCKS5 listen address for proxy-only mode.
+    const val SOCKS5_SERVER_ADDRESS_KEY = "socks5ServerAddress"
+    const val DEFAULT_SOCKS5_SERVER_ADDRESS = "127.0.0.1:1055"
     private lateinit var appInstance: UninitializedApp
     lateinit var notificationManager: NotificationManagerCompat
 
@@ -532,7 +545,11 @@ open class UninitializedApp : Application() {
     return TailscaleMode.fromStoredValue(value)
   }
 
-  private fun getUnencryptedPrefs(): SharedPreferences {
+  fun setSocks5ServerAddress(address: String) {
+    getUnencryptedPrefs().edit().putString(SOCKS5_SERVER_ADDRESS_KEY, address).apply()
+  }
+
+  protected fun getUnencryptedPrefs(): SharedPreferences {
     return getSharedPreferences(UNENCRYPTED_PREFERENCES, MODE_PRIVATE)
   }
 

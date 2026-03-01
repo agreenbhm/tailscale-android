@@ -79,6 +79,22 @@ func (b *backend) updateTUN(rcfg *router.Config, dcfg *dns.OSConfig) error {
 	b.logger.Logf("updateTUN: changed")
 	defer b.logger.Logf("updateTUN: finished")
 
+	if b.appCtx.IsProxyOnlyMode() {
+		b.logger.Logf("updateTUN: proxy-only mode enabled, skipping TUN setup")
+		b.CloseTUNs()
+		b.lastCfg = rcfg
+		b.lastDNSCfg = dcfg
+		if vpnService.service != nil {
+			vpnService.service.UpdateVpnStatus(false)
+		}
+		return nil
+	}
+
+	if vpnService.service == nil {
+		b.logger.Logf("updateTUN: vpn service is nil; skipping TUN setup")
+		return nil
+	}
+
 	// Close previous tunnel(s).
 	// This is necessary for ChromeOS, native Android devices
 	// seem to handle seamless handover between tunnels correctly.
