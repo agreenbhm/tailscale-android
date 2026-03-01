@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ import (
 	"tailscale.com/net/dns"
 	"tailscale.com/net/netmon"
 	"tailscale.com/net/netns"
+	"tailscale.com/net/socks5"
 	"tailscale.com/net/tsdial"
 	"tailscale.com/paths"
 	"tailscale.com/tsd"
@@ -107,6 +109,8 @@ type backend struct {
 	avoidEmptyDNS bool
 
 	appCtx AppContext
+
+	socks5Listener net.Listener
 }
 
 type settingsFunc func(*router.Config, *dns.OSConfig) error
@@ -142,6 +146,11 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 	}
 	a.logIDPublicAtomic.Store(&b.logIDPublic)
 	a.backend = b.backend
+	defer func() {
+		if b.socks5Listener != nil {
+			b.socks5Listener.Close()
+		}
+	}()
 	if hardwareAttestation {
 		a.backend.SetHardwareAttested()
 	}
@@ -187,6 +196,9 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 		select {
 		case s := <-stateCh:
 			state = s
+			if b.appCtx.IsProxyOnlyMode() {
+				break
+			}
 			if state >= ipn.Starting && vpnService.service != nil && b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				// On state change, check if there are router or config changes requiring an update to VPNBuilder
 				if err := b.updateTUN(cfg.rcfg, cfg.dcfg); err != nil {
@@ -200,12 +212,19 @@ func (a *App) runBackend(ctx context.Context, hardwareAttestation bool) error {
 			networkMap = n
 		case c := <-configs:
 			cfg = c
+			if b.appCtx.IsProxyOnlyMode() {
+				configErrs <- nil
+				break
+			}
 			if vpnService.service == nil || !b.isConfigNonNilAndDifferent(cfg.rcfg, cfg.dcfg) {
 				configErrs <- nil
 				break
 			}
 			configErrs <- b.updateTUN(cfg.rcfg, cfg.dcfg)
 		case s := <-onVPNRequested:
+			if b.appCtx.IsProxyOnlyMode() {
+				break
+			}
 			if vpnService.service != nil && vpnService.service.ID() == s.ID() {
 				// Still the same VPN instance, do nothing
 				break
@@ -301,6 +320,23 @@ func (a *App) newBackend(dataDir string, appCtx AppContext, store *stateStore,
 	b.netMon = netMon
 	b.setupLogs(dataDir, logID, logf, sys.HealthTracker.Get())
 	dialer := new(tsdial.Dialer)
+
+	if appCtx.IsProxyOnlyMode() {
+		if addr := appCtx.GetSocks5ServerAddress(); addr != "" {
+			ln, err := net.Listen("tcp", addr)
+			if err != nil {
+				return nil, fmt.Errorf("start SOCKS5 listener on %q: %w", addr, err)
+			}
+			b.socks5Listener = ln
+			log.Printf("SOCKS5 listening on %v", ln.Addr())
+			s5 := &socks5.Server{Logf: logger.WithPrefix(logf, "socks5: "), Dialer: dialer.UserDial}
+			go func() {
+				if err := s5.Serve(ln); err != nil {
+					log.Printf("SOCKS5 server exited: %v", err)
+				}
+			}()
+		}
+	}
 	vf := &VPNFacade{
 		SetBoth:           b.setCfg,
 		GetBaseConfigFunc: b.getDNSBaseConfig,
@@ -395,6 +431,8 @@ func (a *App) closeVpnService(err error, b *backend) {
 	b.lastCfg = nil
 	b.CloseTUNs()
 
-	vpnService.service.DisconnectVPN()
-	vpnService.service = nil
+	if vpnService.service != nil {
+		vpnService.service.DisconnectVPN()
+		vpnService.service = nil
+	}
 }
