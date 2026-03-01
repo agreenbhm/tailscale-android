@@ -475,6 +475,9 @@ open class UninitializedApp : Application() {
 
     // File for shared preferences that are not encrypted.
     private const val UNENCRYPTED_PREFERENCES = "unencrypted"
+
+    // Selected Tailscale runtime mode.
+    private const val TAILSCALE_MODE_KEY = "tailscaleMode"
     private lateinit var appInstance: UninitializedApp
     lateinit var notificationManager: NotificationManagerCompat
 
@@ -507,6 +510,26 @@ open class UninitializedApp : Application() {
   /** This function can be called without initializing the App. */
   fun isAbleToStartVPN(): Boolean {
     return getUnencryptedPrefs().getBoolean(ABLE_TO_START_VPN_KEY, false)
+  }
+
+  /**
+   * setTailscaleMode persists the selected runtime mode.
+   *
+   * This is intentionally stored in unencrypted preferences to make it
+   * available before backend initialization.
+   */
+  fun setTailscaleMode(mode: TailscaleMode) {
+    getUnencryptedPrefs().edit().putString(TAILSCALE_MODE_KEY, mode.name).apply()
+  }
+
+  /**
+   * tailscaleMode returns the selected runtime mode.
+   *
+   * VPN is the default mode to preserve existing behavior.
+   */
+  fun tailscaleMode(): TailscaleMode {
+    val value = getUnencryptedPrefs().getString(TAILSCALE_MODE_KEY, null)
+    return TailscaleMode.fromStoredValue(value)
   }
 
   private fun getUnencryptedPrefs(): SharedPreferences {
