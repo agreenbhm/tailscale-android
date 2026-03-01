@@ -40,8 +40,12 @@ class SettingsViewModel : IpnViewModel() {
   // True when app is in proxy-only mode (no Android VPN preparation/permission path).
   val isProxyOnlyMode: StateFlow<Boolean> = MutableStateFlow(false)
 
+  // SOCKS5 server listen address for proxy-only mode.
+  val socks5ServerAddress: StateFlow<String> = MutableStateFlow("")
+
   init {
     isProxyOnlyMode.set(App.get().tailscaleMode() == TailscaleMode.PROXY_ONLY)
+    socks5ServerAddress.set(App.get().getSocks5ServerAddress())
     viewModelScope.launch {
       Notifier.netmap.collect { netmap -> isAdmin.set(netmap?.SelfNode?.isAdmin ?: false) }
     }
@@ -63,6 +67,30 @@ class SettingsViewModel : IpnViewModel() {
     val mode = if (enabled) TailscaleMode.PROXY_ONLY else TailscaleMode.VPN
     App.get().setTailscaleMode(mode)
     isProxyOnlyMode.set(enabled)
+  }
+
+
+  fun setSocks5ServerAddress(address: String): Boolean {
+    val trimmed = address.trim()
+    if (!isValidHostPort(trimmed)) {
+      return false
+    }
+    App.get().setSocks5ServerAddress(trimmed)
+    socks5ServerAddress.set(trimmed)
+    return true
+  }
+
+  private fun isValidHostPort(value: String): Boolean {
+    val idx = value.lastIndexOf(':')
+    if (idx <= 0 || idx == value.length - 1) {
+      return false
+    }
+    val host = value.substring(0, idx)
+    val port = value.substring(idx + 1).toIntOrNull() ?: return false
+    if (port !in 1..65535) {
+      return false
+    }
+    return host == "127.0.0.1" || host == "localhost" || host == "::1"
   }
 
 }

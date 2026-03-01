@@ -8,13 +8,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
@@ -59,6 +65,42 @@ fun SettingsView(
   val showTailnetLock by MDMSettings.manageTailnetLock.flow.collectAsState()
   val useTailscaleSubnets by MDMSettings.useTailscaleSubnets.flow.collectAsState()
   val isProxyOnlyMode by viewModel.isProxyOnlyMode.collectAsState()
+  val socks5ServerAddress by viewModel.socks5ServerAddress.collectAsState()
+
+  var showSocksDialog by remember { mutableStateOf(false) }
+  var socksInput by remember { mutableStateOf("") }
+  var socksInputError by remember { mutableStateOf(false) }
+
+  if (showSocksDialog) {
+    AlertDialog(
+        onDismissRequest = { showSocksDialog = false },
+        title = { Text(stringResource(R.string.socks5_proxy_address)) },
+        text = {
+          OutlinedTextField(
+              value = socksInput,
+              onValueChange = {
+                socksInput = it
+                socksInputError = false
+              },
+              singleLine = true,
+              isError = socksInputError,
+              label = { Text(stringResource(R.string.socks5_proxy_address)) })
+        },
+        confirmButton = {
+          TextButton(
+              onClick = {
+                socksInputError = !viewModel.setSocks5ServerAddress(socksInput)
+                if (!socksInputError) {
+                  showSocksDialog = false
+                }
+              }) {
+                Text(stringResource(R.string.save))
+              }
+        },
+        dismissButton = {
+          TextButton(onClick = { showSocksDialog = false }) { Text(stringResource(R.string.cancel)) }
+        })
+  }
 
   Scaffold(
       topBar = {
@@ -118,6 +160,16 @@ fun SettingsView(
               isOn = isProxyOnlyMode,
               onToggle = { enabled -> viewModel.setProxyOnlyMode(enabled) })
           Lists.InfoItem(stringResource(R.string.proxy_only_mode_subtitle))
+
+          Lists.ItemDivider()
+          Setting.Text(
+              titleRes = R.string.socks5_proxy_address,
+              subtitle = socks5ServerAddress,
+              onClick = {
+                socksInput = socks5ServerAddress
+                socksInputError = false
+                showSocksDialog = true
+              })
 
           managedByOrganization.value?.let {
             Lists.ItemDivider()
